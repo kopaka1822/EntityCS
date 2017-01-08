@@ -4,12 +4,12 @@
 
 ## Class Overview
 
-If you don't know the Tutorial, you probably want to go there first.
+If you don't know the [Tutorial](#tutorial), you probably want to go there first.
 
 Note: TComponents... is a c++ 11 feature called variadic. It allows you to have a variable number of template arguments.
 
 ```c++
-Manager<float,double> m1;
+Manager<float, double> m1;
 Manager<int, float, double, char> m2;
 ```
 
@@ -83,18 +83,18 @@ struct Shape
 
 ### Initializing the Manager
 
-After you declared your Components, the Manager can be created.  
+After you declared your components, the manager can be created.  
 [class overview](#managert)
 
 ```c++
-ecs::Manager<Transform,Movement,Shape> m;
+ecs::Manager<Transform, Movement, Shape> m;
 m.start();
 ```
 
 For convenience you may do something like this:
 
 ```c++
-#define SYSTEM Transform,Movement,Shape
+#define SYSTEM Transform, Movement, Shape
 
 ecs::Manager<SYSTEM> m;
 m.start()
@@ -129,7 +129,7 @@ myEnt->addComponent<Transform>();
 myEnt->getComponent<Transform>().position = vec3(10.0f, 20.0f, 0.0f);
 
 // adding component + initializing
-myEnt->getComponent<Shape>().color = vec3(1.0f,0.0f,0.0f);
+myEnt->addComponent<Shape>().color = vec3(1.0f,0.0f,0.0f);
 
 // testing component
 if(myEnt->hasComponent<Shape>())
@@ -237,8 +237,9 @@ m.forEachParallel([](ecs::Entity<System>& e)
 });
 ```
 
-This method will apply the function on the first entity and measure the time. Based on the amount of entites, the measured time, the time until
-a thread starts and the number of cores it will evaluate if execution on multiple cores will speed up this call. This will probably have some poor
+This method will apply the function on the first entity and measures the time needed to process one entity.
+It will evaluate if execution on multiple cores will speed up this call based on: the amount of entities,
+the measured time, the time until a thread starts and the number of cores. This will probably have some poor
 performance in debug mode (because its monitoring several threads) but the release build should be faster.
 
 ### Adding Systems
