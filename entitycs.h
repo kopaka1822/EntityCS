@@ -434,11 +434,11 @@ namespace ecs
 			for (auto& s : m_systems)
 				s->initQueries(*this);
 
+			m_state = States::Running;
+			
 			// init systems
 			for (auto& s : m_systems)
 				s->begin();
-
-			m_state = States::Running;
 		}
 	private:
 		template<class T>
