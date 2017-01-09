@@ -110,7 +110,7 @@ namespace ecs
 		{
 			return m_hasComponent[m_manager->template getComponentIndex<T>()];
 		}
-#ifdef __clang__
+#ifndef _MSC_BUILD
 		template<class T>
 		T& getComponent()
 		{
@@ -151,7 +151,7 @@ namespace ecs
 			return *m_manager;
 		}
 	private:
-#ifndef __clang__
+#ifdef _MSC_BUILD
 		template<typename  T, typename... TComps>
 		static constexpr T& _getComponent(std::tuple<T, TComps...>& t)
 		{
@@ -483,7 +483,7 @@ namespace ecs
         template<typename T>
         static constexpr size_t _getComponentIndex(size_t slot, const T& dummy, const std::tuple<>&)
         {
-#ifndef __clang__
+#ifdef _MSC_BUILD
 			// ReSharper disable once CppStaticAssertFailure
 			static_assert(false, "component type does not exist in this system");
 #endif
