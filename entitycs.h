@@ -6,6 +6,7 @@
 #include <thread>
 #include <chrono>
 #include <cassert>
+#include <mutex>
 
 namespace ecs
 {
@@ -291,9 +292,12 @@ namespace ecs
 			assert(m_state == States::Running);
 			shared_ptr<EntityT> e = make_shared<EntityT>();
 			e->m_manager = this;
-			e->m_id = m_curID++;
-			// queue for adding (to prevent iterator lost when adding whilst iterating through entities)
-			m_freshEntities.push_back(e);
+			std::lock_guard<std::mutex> g(m_muEntityAdd);
+			{
+				e->m_id = m_curID++;
+				// queue for adding (to prevent iterator lost when adding whilst iterating through entities)
+				m_freshEntities.push_back(e);
+			}
 			if (e->hasScript())
 				e->runStartupScript();
 			return e;
@@ -570,5 +574,6 @@ namespace ecs
 		States m_state = States::Init;
 		TimeT m_timeTillThreadStarts = 0;
 		size_t m_nThreads = 0;
+		std::mutex m_muEntityAdd;
 	};
 }
