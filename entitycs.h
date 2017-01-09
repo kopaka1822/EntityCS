@@ -5,6 +5,7 @@
 #include <memory>
 #include <thread>
 #include <chrono>
+#include <cassert>
 
 namespace ecs
 {
@@ -113,13 +114,17 @@ namespace ecs
 		T& getComponent()
 		{
 			assert(hasComponent<T>());
-			return _getComponent<T>(m_components);
+            static const T dummy1 = T();
+            static const std::tuple<TComponents...> dummy2;
+            return std::get<m_manager->template _getComponentIndex(0,dummy1,dummy2)>(m_components);
 		}
 		template<class T>
 		const T& getComponent() const
 		{
 			assert(hasComponent<T>());
-			return _getComponent<T>(m_components);
+            static const T dummy1 = T();
+            static const std::tuple<TComponents...> dummy2;
+            return std::get<m_manager->template _getComponentIndex(0,dummy1,dummy2)>(m_components);
 		}
 		void addScript(shared_ptr<ScriptT> s)
 		{
@@ -131,40 +136,6 @@ namespace ecs
 			return *m_manager;
 		}
 	private:
-		template<typename  T, typename... TComps>
-		static constexpr T& _getComponent(std::tuple<T, TComps...>& t)
-		{
-			return std::get<0>(t);
-		}
-		template<typename  T, typename... TComps>
-		static constexpr T& _getComponent(std::tuple<TComps...>& t)
-		{
-			return _getComponent<T>(t._Get_rest());
-		}
-		template<typename T>
-		static constexpr T& _getComponent(std::tuple<>&)
-		{
-			// ReSharper disable once CppStaticAssertFailure
-			static_assert(false, "component type does not exist in this system");
-			return *reinterpret_cast<T*>(nullptr);
-		}
-		template<typename  T, typename... TComps>
-		static constexpr const T& _getComponent(const std::tuple<T, TComps...>& t)
-		{
-			return std::get<0>(t);
-		}
-		template<typename  T, typename... TComps>
-		static constexpr const T& _getComponent(const std::tuple<TComps...>& t)
-		{
-			return _getComponent<T>(t._Get_rest());
-		}
-		template<typename T>
-		static constexpr const T& _getComponent(const std::tuple<>&)
-		{
-			// ReSharper disable once CppStaticAssertFailure
-			static_assert(false, "component type does not exist in this system");
-			return *reinterpret_cast<T*>(nullptr);
-		}
 		void runScript(float dt)
 		{
 			assert(hasScript());
@@ -443,10 +414,28 @@ namespace ecs
 	private:
 		template<class T>
 		size_t getComponentIndex() const
-		{
-			static const std::tuple<TComponents...> dummy;
-			return _getComponentIndex<T>(0, dummy);
-		}
+        {
+            static const T dummy1 = T();
+            static const std::tuple<TComponents...> dummy2;
+            return _getComponentIndex(0, dummy1, dummy2);
+        }
+#ifdef __GNUG__
+        template<typename T, typename... TComps>
+        static constexpr size_t _getComponentIndex(size_t slot, const T& dummy, const std::tuple<T, TComps...>& t)
+        {
+            return slot;
+        }
+        template<typename T, typename U, typename... TComps>
+        static constexpr size_t _getComponentIndex(size_t slot, const T& dummy, const std::tuple<U, TComps...>& t)
+        {
+            return _getComponentIndex(slot + 1, dummy, std::tuple<TComps...>());
+        }
+        template<typename T>
+        static constexpr size_t _getComponentIndex(size_t slot, const T& dummy, const std::tuple<>&)
+        {
+            return -1;
+        }
+#else // microsoft version
 		template<typename T, typename... TComps>
 		static constexpr size_t _getComponentIndex(size_t slot, const std::tuple<T, TComps...>& t)
 		{
@@ -460,16 +449,26 @@ namespace ecs
 		template<typename T>
 		static constexpr size_t _getComponentIndex(size_t slot, const std::tuple<>&)
 		{
-			// ReSharper disable once CppStaticAssertFailure
+            // ReSharper disable once CppStaticAssertFailure
 			static_assert(false, "component type does not exist in this system");
-			return -1;
+            return -1;
 		}
+#endif
+#ifdef __GNUG__
 		template<typename T, typename... TComps>
+		void fillComponentMask(std::vector<size_t>& mask, const std::tuple<T, TComps...>& t) const
+		{
+			mask.push_back(getComponentIndex<T>());
+			fillComponentMask(mask, std::tuple<TComps...>());
+		}
+#else
+        template<typename T, typename... TComps>
 		void fillComponentMask(std::vector<size_t>& mask, const std::tuple<T, TComps...>& t) const
 		{
 			mask.push_back(getComponentIndex<T>());
 			fillComponentMask(mask, t._Get_rest());
 		}
+#endif
 		// ReSharper disable once CppMemberFunctionMayBeStatic
 		void fillComponentMask(std::vector<size_t>& mask, const std::tuple<>& t) const
 		{}
