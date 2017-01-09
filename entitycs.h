@@ -292,7 +292,7 @@ namespace ecs
 			shared_ptr<EntityT> e = make_shared<EntityT>();
 			e->m_manager = this;
 			e->m_id = m_curID++;
-			m_entities.push_back(e);
+			// queue for adding (to prevent iterator lost when adding whilst iterating through entities)
 			m_freshEntities.push_back(e);
 			if (e->hasScript())
 				e->runStartupScript();
@@ -357,6 +357,7 @@ namespace ecs
 					if (e->isAlive())
 					{
 						e->m_componentsAdded = true;
+						m_entities.push_back(e);
 						// generate component key
 						auto entKey = getComponentKeyFromEntity(*e);
 						for (auto& s : m_queries)
@@ -374,12 +375,9 @@ namespace ecs
 				s->tick(dt);
 
 			// run scripts for entities
-			// iterating this way is required because the script can add entities to this list (but not remove)
-			size_t nEnts = m_entities.size();
-			for(size_t i = 0; i < nEnts; i++)
-				if (m_entities[i]->hasScript())
-					m_entities[i]->runScript(dt);
-			
+			for (auto& e : m_entities)
+				if (e->hasScript())
+					e->runScript(dt);
 		}
 		template<typename... TReq, typename TFunctor>
 		void forEach(TFunctor func)
