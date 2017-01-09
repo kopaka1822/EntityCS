@@ -117,7 +117,7 @@ namespace ecs
 			assert(hasComponent<T>());
             static const T dummy1 = T();
             static const std::tuple<TComponents...> dummy2;
-            return std::get<m_manager->template _getComponentIndex(0,dummy1,dummy2)>(m_components);
+			return std::get<ManagerT::_getComponentIndex(0,dummy1,dummy2)>(m_components);
 		}
 		template<class T>
 		const T& getComponent() const
@@ -125,7 +125,7 @@ namespace ecs
 			assert(hasComponent<T>());
             static const T dummy1 = T();
             static const std::tuple<TComponents...> dummy2;
-            return std::get<m_manager->template _getComponentIndex(0,dummy1,dummy2)>(m_components);
+            return std::get<ManagerT::_getComponentIndex(0,dummy1,dummy2)>(m_components);
 		}
 #else
 		template<class T>

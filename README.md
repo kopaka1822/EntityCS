@@ -13,8 +13,9 @@ The [Evolve your Hierarchy](http://cowboyprogramming.com/2007/01/05/evolve-your-
 The system is written in c++ 11   
 
 tested with:
-- Visual Studio 2015
-- Clion (g++)
+- Visual Studio 2015 (msvc)
+- g++ (mingw)
+- clang
 
 ## Class Overview
 
