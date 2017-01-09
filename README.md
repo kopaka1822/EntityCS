@@ -2,31 +2,35 @@
 
 ## Overview
 
-An Entity Component System (ECS) tries to seperate game logic from data.
+An "Entity Component System" (ECS) tries to seperate game logic from data.
 By doing this it prevents deep class hierarchies (which are somewhat slow and not always easy to design).
-The Idea is that every entity consists of several components (Transform, Health, Armor...) and the logic is performed
-on every entity with a specific shema (position updates on every entity with Transform + Movement components).
+The idea is that every entity consists of several components (transform, health, armor...) and the logic is performed
+on every entity with a specific shema (position updates on every entity with transform + movement components).
 The [Evolve your Hierarchy](http://cowboyprogramming.com/2007/01/05/evolve-your-heirachy/) article provides a solid overview of EC systems and why you should use them.
 
 ## Requirements
 
 The system is written in c++ 11   
 
-tested on:
+tested with:
 - Visual Studio 2015
+- Clion (g++)
 
 ## Class Overview
 
-If you don't know the [Tutorial](#tutorial), you probably want to go there first.
+If you haven't read the [Tutorial](#tutorial), you probably want to go there first.
 
-Note: TComponents... is a c++ 11 feature called variadic. It allows you to have a variable number of template arguments.
+Note: `TComponents...` is a c++ 11 feature called variadic. It allows you to have a variable number of template arguments.
 
 ```c++
+template<typename... TComponents>
+class Manager;
+
 Manager<float, double> m1;
 Manager<int, float, double, char> m2;
 ```
 
-ManagerT, EntityT, ScriptT and SystemT will be used to refer to the corresponding Classname<TComponents...> template.
+`ManagerT`, `EntityT`, `ScriptT` and `SystemT` will be used to refer to the corresponding `Classname<TComponents...>` template.
 
 ### ManagerT
 - `template<typename... TReq> void addQuery()`
@@ -190,12 +194,12 @@ myEnt.addScript(std::make_shared<ParticleScript>(5.0f));
 ```
 
 This will add the particle script for a 5 second lifetime.
-You can add multiple scripts to one Entity, they will be executed in the order they were added within the `Manager.tick(float dt)` call.
+You can add multiple scripts to one entity, they will be executed in the order they were added within the `Manager.tick(float dt)` call.
 You can even share one script between multiple entities because you are passing a shared_ptr.
 
 ### Queries
 
-At some point you probably want to perform some actions on your entities. You can easily do this using the Manager `m`.
+At some point you probably want to perform some actions on your entities. You can easily do this using the manager `m`.
 
 ```c++
 // this will return a const std::vector<std::shared_ptr<ecs::Entity<SYSTEM>>>& to all entities with Transform and Movement components
@@ -210,7 +214,7 @@ for(const auto& e : myEnts)
 ```
 
 However without adding the query cache to the manager, this would be somewhat slow because the vector will be created on function call.
-It is more efficient to add a query cache to the manager before Manager.start() to optimize this call by caching the result of the function.
+It is more efficient to add a query cache to the manager before `Manager.start()` to optimize this call by caching the result of the function.
 
 ```c++
 ecs::Manager<SYSTEM> m;
@@ -239,7 +243,7 @@ m.forEach([](ecs::Entity<System>& e)
 });
 ```
 
-This may seem slower like the other approach but with compiler inlining this approach is exactly as fast as the previous.
+This may seem slower like the other approach but with function inlining this approach is exactly as fast as the previous.
 A way to improve independent per entity actions for a bigger amount of entities is running this function on multiple threads.
 With the manager this can be easily done:
 
@@ -301,7 +305,7 @@ while(1)
 }
 ```
 
-Declaring the MovementSystem class looks like this:  
+Declaring the `MovementSystem` class looks like this:  
 [class overview](#systemt)
 
 ```c++
