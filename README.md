@@ -2,6 +2,12 @@
 
 ## Overview
 
+An Entity Component System (ECS) tries to seperate game logic from data.
+By doing this it prevents deep class hierarchies (which are somewhat slow and not always easy to design).
+The Idea is that every entity consists of several components (Transform, Health, Armor...) and the logic is performed
+on every entity with a specific shema (position updates on every entity with Transform + Movement components).
+The [Evolve your Hierarchy](http://cowboyprogramming.com/2007/01/05/evolve-your-heirachy/) article provides a solid overview of EC systems and why you should use them.
+
 ## Class Overview
 
 If you don't know the [Tutorial](#tutorial), you probably want to go there first.
