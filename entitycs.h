@@ -12,13 +12,14 @@ namespace ecs
 {
 	using std::shared_ptr;
 	using std::make_shared;
+	using SystemKeyT = uint64_t;
 
 	template<typename... TComponents>
 	class Manager;
 
 	template<typename... TComponents>
 	class Entity;
-	
+
 	template<typename... TComponents>
 	class Script
 	{
@@ -62,7 +63,7 @@ namespace ecs
 
 		virtual ~System() = default;
 
-		virtual void initQueries(ManagerT& m){}
+		virtual void initQueries(ManagerT& m) {}
 		virtual void begin() {}
 		virtual void tick(float dt) {}
 	protected:
@@ -82,10 +83,6 @@ namespace ecs
 		using ScriptT = Script<TComponents...>;
 		friend ManagerT;
 
-		Entity()
-		{
-			m_hasComponent.fill(false);
-		}
 		void kill() noexcept
 		{
 			m_alive = false;
@@ -103,30 +100,26 @@ namespace ecs
 		{
 			assert(!m_componentsAdded);
 			static const size_t slot = m_manager->template getComponentIndex<T>();
-			m_hasComponent[slot] = true;
+			m_componentFlags |= SystemKeyT(1) << SystemKeyT(slot);
 			return getComponent<T>();
 		}
 		template<class T>
 		bool hasComponent() const
 		{
-			return m_hasComponent[m_manager->template getComponentIndex<T>()];
+			return ((SystemKeyT(1) << (m_manager->template getComponentIndex<T>())) & m_componentFlags) != 0;
 		}
 #ifndef _MSC_BUILD
 		template<class T>
 		T& getComponent()
 		{
 			assert(hasComponent<T>());
-            static const T dummy1 = T();
-            static const std::tuple<TComponents...> dummy2;
-			return std::get<ManagerT::_getComponentIndex(0,dummy1,dummy2)>(m_components);
+			return std::get<ManagerT::template getComponentIndex<T>()>(m_components);
 		}
 		template<class T>
 		const T& getComponent() const
 		{
 			assert(hasComponent<T>());
-            static const T dummy1 = T();
-            static const std::tuple<TComponents...> dummy2;
-            return std::get<ManagerT::_getComponentIndex(0,dummy1,dummy2)>(m_components);
+			return std::get<ManagerT::template getComponentIndex<T>()>(m_components);
 		}
 #else
 		template<class T>
@@ -166,7 +159,7 @@ namespace ecs
 		template<typename T>
 		static constexpr T& _getComponent(std::tuple<>&)
 		{
-			// ReSharper disable once CppStaticAssertFailure 
+			// ReSharper disable once CppStaticAssertFailure
 			static_assert(false, "component type does not exist in this system");
 			return *reinterpret_cast<T*>(nullptr);
 		}
@@ -178,12 +171,12 @@ namespace ecs
 		template<typename  T, typename... TComps>
 		static constexpr const T& _getComponent(const std::tuple<TComps...>& t)
 		{
-		return _getComponent<T>(t._Get_rest());
+			return _getComponent<T>(t._Get_rest());
 		}
 		template<typename T>
 		static constexpr const T& _getComponent(const std::tuple<>&)
 		{
-			// ReSharper disable once CppStaticAssertFailure 
+			// ReSharper disable once CppStaticAssertFailure
 			static_assert(false, "component type does not exist in this system");
 			return *reinterpret_cast<T*>(nullptr);
 		}
@@ -201,7 +194,7 @@ namespace ecs
 		void runStartupScript()
 		{
 			assert(hasScript());
-			for(auto s : m_scripts)
+			for (auto s : m_scripts)
 			{
 				s->m_curEntity = this;
 				s->begin();
@@ -218,7 +211,7 @@ namespace ecs
 		size_t m_id = -1;
 		Manager<TComponents...>* m_manager = nullptr;
 		std::tuple<TComponents...> m_components;
-		std::array<bool, std::tuple_size<std::tuple<TComponents...>>::value> m_hasComponent;
+		SystemKeyT m_componentFlags = 0; // bitflag of used components
 		static_assert(std::tuple_size<std::tuple<TComponents...>>::value <= 64, "only up to 64 components are supported");
 		std::vector<shared_ptr<ScriptT>> m_scripts;
 	};
@@ -227,7 +220,6 @@ namespace ecs
 	class Manager
 	{
 		using TimeT = long long;
-		using SystemKeyT = uint64_t;
 		enum class States
 		{
 			Init,
@@ -254,7 +246,7 @@ namespace ecs
 				end = clk.now();
 			});
 			t1.join();
-			m_timeTillThreadStarts = 
+			m_timeTillThreadStarts =
 				TimeT(std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count());
 
 			// available Threads
@@ -267,10 +259,8 @@ namespace ecs
 		{
 			assert(m_state == States::Init);
 			// add systems before adding entities
-			std::vector<size_t> required;
 			static const std::tuple<TReq...> dummy;
-			fillComponentMask(required, dummy);
-			auto binaryKey = getComponentMaskKey(required);
+			auto binaryKey = getComponentMask(0, dummy);
 			// is system already added?
 			for (const auto& s : m_queries)
 			{
@@ -278,7 +268,7 @@ namespace ecs
 				if (s.first == binaryKey)
 					return;
 			}
-			m_queries.push_back(std::make_pair(binaryKey,std::vector<shared_ptr<EntityT>>()));
+			m_queries.push_back(std::make_pair(binaryKey, std::vector<shared_ptr<EntityT>>()));
 			m_queries.back().second.reserve(1024);
 		}
 		void addSystem(shared_ptr<SystemT> s)
@@ -306,10 +296,8 @@ namespace ecs
 		const std::vector<shared_ptr<EntityT>>& getEntsWith()
 		{
 			assert(m_state == States::Running);
-			std::vector<size_t> required;
 			static const std::tuple<TReq...> dummy;
-			fillComponentMask(required, dummy);
-			auto binaryKey = getComponentMaskKey(required);
+			auto binaryKey = getComponentMask(0, dummy);
 
 			// get binary key from system
 			for (auto& s : m_queries)
@@ -322,16 +310,7 @@ namespace ecs
 				res.reserve(m_entities.size());
 				for (const auto& e : m_entities)
 				{
-					bool match = true;
-					for (auto i : required)
-					{
-						if (!e->m_hasComponent[i])
-						{
-							match = false;
-							break;
-						}
-					}
-					if (match)
+					if ((binaryKey & e->m_componentFlags) == binaryKey)
 						res.push_back(e);
 				}
 				m_tempCachedQueries.push_back(move(res));
@@ -345,7 +324,7 @@ namespace ecs
 			m_tempCachedQueries.resize(0);
 
 			// remove dead entities:
-			if(removeDeadEntities(m_entities))
+			if (removeDeadEntities(m_entities))
 			{
 				// probably some dead entites in here
 				for (auto& s : m_queries)
@@ -353,7 +332,7 @@ namespace ecs
 			}
 
 			// add new components
-			if(m_freshEntities.size())
+			if (m_freshEntities.size())
 			{
 				for (auto& e : m_freshEntities)
 				{
@@ -400,7 +379,7 @@ namespace ecs
 			auto it = vec.begin();
 			const auto end = vec.end();
 
-			if(vec.size() > m_nThreads * 4)
+			if (vec.size() > m_nThreads * 4)
 			{
 				// only if its really worth
 				// calculate time for one iteration
@@ -412,18 +391,18 @@ namespace ecs
 					TimeT(std::chrono::duration_cast<std::chrono::nanoseconds>(tend - tstart).count());
 
 				// calculate if splitting is worth
-				size_t step = (vec.size()-1) / m_nThreads;
+				size_t step = (vec.size() - 1) / m_nThreads;
 				TimeT timeWithoutThreads = TimeT(vec.size() - 1) * duration;
 				TimeT timeWithThreads = TimeT(step) * duration + m_timeTillThreadStarts;
-				
-				if(timeWithThreads < timeWithoutThreads)
+
+				if (timeWithThreads < timeWithoutThreads)
 				{
 					// execute parallel
 					std::vector<std::thread> threads;
 					threads.reserve(m_nThreads);
-					for(size_t i = 0; i < m_nThreads - 1; i++)
+					for (size_t i = 0; i < m_nThreads - 1; i++)
 					{
-						threads.emplace_back([it,step,func]()
+						threads.emplace_back([it, step, func]()
 						{
 							auto i = it; // because of capture thing
 							auto end = it + step;
@@ -436,7 +415,7 @@ namespace ecs
 						it += step;
 					}
 					// execute last on current threads
-					while(it != end)
+					while (it != end)
 					{
 						func(*(*it));
 						++it;
@@ -448,7 +427,7 @@ namespace ecs
 				}
 			}
 			// execute on single thread
-			for(;it != end; ++it)
+			for (; it != end; ++it)
 				func(*(*it));
 		}
 		void start()
@@ -459,70 +438,53 @@ namespace ecs
 				s->initQueries(*this);
 
 			m_state = States::Running;
-			
+
 			// init systems
 			for (auto& s : m_systems)
 				s->begin();
 		}
 	private:
 		template<class T>
-		size_t getComponentIndex() const
-        {
-            static const T dummy1 = T();
-            static const std::tuple<TComponents...> dummy2;
-            return _getComponentIndex(0, dummy1, dummy2);
-        }
-        template<typename T, typename... TComps>
-        static constexpr size_t _getComponentIndex(size_t slot, const T& dummy, const std::tuple<T, TComps...>& t)
-        {
-            return slot;
-        }
-        template<typename T, typename U, typename... TComps>
-        static constexpr size_t _getComponentIndex(size_t slot, const T& dummy, const std::tuple<U, TComps...>& t)
-        {
-            return _getComponentIndex(slot + 1, dummy, std::tuple<TComps...>());
-        }
-        template<typename T>
-        static constexpr size_t _getComponentIndex(size_t slot, const T& dummy, const std::tuple<>&)
-        {
+		static constexpr size_t getComponentIndex()
+		{
+			return _getComponentIndex(0, (T*)(nullptr), std::tuple<TComponents...>());
+		}
+		template<typename T, typename... TComps>
+		static constexpr size_t _getComponentIndex(size_t slot, T* dummy, const std::tuple<T, TComps...>& t)
+		{
+			return slot;
+		}
+		template<typename T, typename U, typename... TComps>
+		static constexpr size_t _getComponentIndex(size_t slot, T* dummy, const std::tuple<U, TComps...>& t)
+		{
+			return _getComponentIndex(slot + 1, dummy, std::tuple<TComps...>());
+		}
+		template<typename T>
+		static constexpr size_t _getComponentIndex(size_t slot, const T& dummy, const std::tuple<>&)
+		{
 #ifdef _MSC_BUILD
 			// ReSharper disable once CppStaticAssertFailure
 			static_assert(false, "component type does not exist in this system");
 #endif
-            return -1;
-        }
+			return -1;
+		}
 		template<typename T, typename... TComps>
-		void fillComponentMask(std::vector<size_t>& mask, const std::tuple<T, TComps...>& t) const
+		static constexpr SystemKeyT getComponentMask(SystemKeyT key, const std::tuple<T, TComps...>& t)
 		{
-			mask.push_back(getComponentIndex<T>());
-			fillComponentMask(mask, std::tuple<TComps...>());
+			return getComponentMask(key | SystemKeyT(1) << SystemKeyT(getComponentIndex<T>()), std::tuple<TComps...>());
 		}
-		// ReSharper disable once CppMemberFunctionMayBeStatic
-		void fillComponentMask(std::vector<size_t>& mask, const std::tuple<>& t) const
-		{}
-
-		static SystemKeyT getComponentMaskKey(const std::vector<size_t>& v)
+		static constexpr SystemKeyT getComponentMask(SystemKeyT key, const std::tuple<>& t)
 		{
-			// vector 0,2,3 -> ...011001 (binary key)
-			SystemKeyT key = 0;
-			for (size_t i : v)
-				key |= SystemKeyT(1) << SystemKeyT(i+1);
 			return key;
 		}
-		static SystemKeyT getComponentKeyFromEntity(const EntityT& e)
+		static constexpr SystemKeyT getComponentKeyFromEntity(const EntityT& e)
 		{
-			SystemKeyT key = 0;
-			for(size_t i = 0; i < e.m_hasComponent.size(); i++)
-			{
-				if (e.m_hasComponent[i])
-					key |= SystemKeyT(1) << SystemKeyT(i+1);
-			}
-			return key;
+			return e.m_componentFlags;
 		}
 		/*
-			this will remove all dead entites in the vector with runtime O(n)
-			returns true if dead entities were found
-			-> false if nothing was changed
+		this will remove all dead entites in the vector with runtime O(n)
+		returns true if dead entities were found
+		-> false if nothing was changed
 		*/
 		bool removeDeadEntities(std::vector<shared_ptr<EntityT>>& v)
 		{
@@ -533,24 +495,24 @@ namespace ecs
 			// <- swap ->
 			// shrink list
 			if (!v.size()) return false;
-			
+
 			size_t left = 0;
 			size_t right = v.size() - 1;
 			size_t startSize = v.size();
-			while(left <= right)
+			while (left <= right)
 			{
 				// is dead?
-				if(!v[left]->isAlive())
+				if (!v[left]->isAlive())
 				{
 					// search first dead in right
-					while(right > left)
+					while (right > left)
 					{
 						if (v[right]->isAlive())
 							break;
 						right--;
 						v.pop_back();
 					}
-					if(right > left)
+					if (right > left)
 					{
 						// do the swap
 						std::swap(v[left], v[right]);
