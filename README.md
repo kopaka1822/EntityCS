@@ -55,22 +55,22 @@ Manager<int, float, double, char> m2;
 - `ManagerT& getManager() const`  
 
 ### ScriptT
-- `virtual methods:`  
+- virtual methods:  
   - `virtual ~Script()` 
   - `virtual void begin()` called when entity is spawned.  
   - `virtual void tick(float dt)` called every frame.  
-- `helper methods`  
+- helper methods:  
   - `EntityT& getEntity()` returns a reference to the currently processed entity of this script.  
   - `const EntityT& getEntity() const` 
   - `ManagerT& getManager() const`
   
 ### SystemT
-- `virtual methods:`  
+- virtual methods:  
   - `virtual ~System()`
-  - `virtual void initQueries(ManagerT& m)` called withing `Manager.start()`. Implement your `Manager.addQuery<>()` calls here.
+  - `virtual void initQueries(ManagerT& m)` called within `Manager.start()`. Implement your `Manager.addQuery<>()` calls here.
   - `virtual void begin()` called within `Manager.start()` after initQueries().
   - `virtual void tick(float dt)` called every frame.  
-- `helper methods`  
+- helper methods: 
   - `ManagerT& getManager() const`
 
 ## Tutorial
@@ -238,7 +238,7 @@ You may also use the manager to perform per entity operations. To do that you ha
 Adding the query is still required.
 
 ```c++
-m.forEach([](ecs::Entity<System>& e)
+m.forEach<Transform,Movement>([](ecs::Entity<System>& e)
 {
 	e.getComponent<Movement>().acceleration = 1.0f;
 });
@@ -249,7 +249,7 @@ A way to improve independent per entity actions for a bigger amount of entities 
 With the manager this can be easily done:
 
 ```c++
-m.forEachParallel([](ecs::Entity<System>& e)
+m.forEachParallel<Transform,Movement>([](ecs::Entity<System>& e)
 {
 	e.getComponent<Movement>().acceleration = 1.0f;
 });
@@ -325,7 +325,7 @@ public:
 		// can be used to spawn entities
 	}
 	// will be executed every frame
-	virtual void tick(float dt) override
+	void tick(float dt) override
 	{
 		getManager().forEachParallel<Transform, Movement>([dt](ecs::Entity<SYSTEM>& e)
 		{
