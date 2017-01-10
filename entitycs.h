@@ -1,7 +1,6 @@
 #pragma once
 #include <tuple>
 #include <vector>
-#include <array>
 #include <memory>
 #include <thread>
 #include <chrono>
@@ -324,11 +323,19 @@ namespace ecs
 			m_tempCachedQueries.resize(0);
 
 			// remove dead entities:
-			if (removeDeadEntities(m_entities))
+			bool scriptRemoved = false;
+			SystemKeyT removedComponments = 0;
+			if (removeDeadEntities(m_entities, removedComponments, scriptRemoved))
 			{
 				// probably some dead entites in here
-				for (auto& s : m_queries)
-					removeDeadEntities(s.second);
+				for (auto& q : m_queries)
+				{
+					if(q.first & removedComponments)
+					{
+						// only remove entities if at least one component from the query was removed
+						removeDeadEntities(q.second);
+					}
+				}
 			}
 
 			// add new components
@@ -447,6 +454,7 @@ namespace ecs
 		template<class T>
 		static constexpr size_t getComponentIndex()
 		{
+			// ReSharper disable once CppCStyleCast
 			return _getComponentIndex(0, (T*)(nullptr), std::tuple<TComponents...>());
 		}
 		template<typename T, typename... TComps>
@@ -483,10 +491,52 @@ namespace ecs
 		}
 		/*
 		this will remove all dead entites in the vector with runtime O(n)
+		*/
+		void removeDeadEntities(std::vector<shared_ptr<EntityT>>& v)
+		{
+			// idea:
+
+			// find first dead entity from left
+			// find first living entity from right
+			// <- swap ->
+			// shrink list
+			if (!v.size()) return;
+
+			size_t left = 0;
+			size_t right = v.size() - 1;
+			while (left <= right)
+			{
+				// is dead?
+				if (!v[left]->isAlive())
+				{
+					// search first dead in right
+					while (right > left)
+					{
+						if (v[right]->isAlive())
+							break;
+						right--;
+						v.pop_back();
+					}
+					if (right > left)
+					{
+						// do the swap
+						std::swap(v[left], v[right]);
+						right--;
+					}
+					v.pop_back();
+				}
+				left++;
+			}
+		}
+		/*
+		this will remove all dead entites in the vector with runtime O(n)
 		returns true if dead entities were found
 		-> false if nothing was changed
+
+		rflag will indicate all removed components from entities
+		rscript will indicate if at least one removed entity had a script
 		*/
-		bool removeDeadEntities(std::vector<shared_ptr<EntityT>>& v)
+		bool removeDeadEntities(std::vector<shared_ptr<EntityT>>& v, SystemKeyT& rflag, bool& rscript)
 		{
 			// idea:
 
@@ -499,11 +549,15 @@ namespace ecs
 			size_t left = 0;
 			size_t right = v.size() - 1;
 			size_t startSize = v.size();
+			rflag = 0;
+			rscript = false;
 			while (left <= right)
 			{
 				// is dead?
 				if (!v[left]->isAlive())
 				{
+					rflag |= v[left]->m_componentFlags;
+					rscript = rscript || v[left]->hasScript();
 					// search first dead in right
 					while (right > left)
 					{
