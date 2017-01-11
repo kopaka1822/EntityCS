@@ -2,11 +2,12 @@
 
 ## Overview
 
-An "Entity Component System" (ECS) tries to seperate game logic from data.
-By doing this it prevents deep class hierarchies (which are somewhat slow and not always easy to design).
-The idea is that every entity consists of several components (transform, health, armor...) and the logic is performed
-on every entity with a specific shema (position updates on every entity with transform + movement components).
-The [Evolve your Hierarchy](http://cowboyprogramming.com/2007/01/05/evolve-your-heirachy/) article provides a solid overview of EC systems and why you should use them.
+The main purpose of an "Entity Component System" (ECS) is to seperate game logic from data.
+It thus prevents deep class hierarchies (which are somewhat slow and not always easy to design).
+The idea is that every entity consists of several components (e.g. transform, health, armor...) and the logic is performed
+on every entity in a specific pattern ( e.g. position updates on every entity with transform + movement components).
+Check out the [Evolve your Hierarchy](http://cowboyprogramming.com/2007/01/05/evolve-your-heirachy/) article. It provides a solid overview of EC systems and explains in
+further detail why you should definitely use them yourself.
 
 ## Requirements
 
@@ -19,7 +20,7 @@ tested with:
 
 ## Class Overview
 
-If you haven't read the [Tutorial](#tutorial), you probably want to go there first.
+If you haven't read the [Tutorial](#tutorial), you may want to check that out first.
 
 Note: `TComponents...` is a c++ 11 feature called variadic. It allows you to have a variable number of template arguments.
 
@@ -101,7 +102,7 @@ struct Shape
 
 ### Initializing the Manager
 
-After you declared your components, the manager can be created.  
+After you have declared your components, the manager can be created.  
 [class overview](#managert)
 
 ```c++
@@ -109,7 +110,7 @@ ecs::Manager<Transform, Movement, Shape> m;
 m.start();
 ```
 
-For convenience you may do something like this:
+For convenience you may want to use this:
 
 ```c++
 #define SYSTEM Transform, Movement, Shape
@@ -136,7 +137,7 @@ auto myEnt = m.addEntity();
 ```
 
 This will return an `std::shared_ptr<ecs::Entity<SYSTEM>>` to the newly allocated entity.
-This is how you can work with the components:  
+The following code describes how you can interact with the components:  
 [class overview](#entityt)
 
 ```c++
@@ -157,7 +158,7 @@ if(myEnt->hasComponent<Shape>())
 ### Adding Scripts to Entites
 
 You can attach scripts to entities to give them special behaviour.
-In order to do this you have to derive from the script class.
+In order to do so, you have to derive from the script class.
 Particle script example:  
 [class overview](#scriptt)
 
@@ -168,7 +169,7 @@ class ParticleScript : public ecs::Script<SYSTEM>
 public:
 	ParticleScript(float lifetime)
 		:
-	m_time(time)
+	m_time(lifetime)
 	{}
 	// in this case empty
 	// will be called on entity spawn
@@ -177,8 +178,8 @@ public:
 	// called every frame
 	void tick(float dt) override
 	{
-		m_life -= dt;
-		if(m_life < 0.0f)
+		m_time -= dt;
+		if(m_time < 0.0f)
 			// use getEntity() to acquire reference to current entity
 			getEntity().kill();
 	}
@@ -194,18 +195,18 @@ auto myEnt = m.addEntity();
 myEnt.addScript(std::make_shared<ParticleScript>(5.0f));
 ```
 
-This will add the particle script for a 5 second lifetime.
-You can add multiple scripts to one entity, they will be executed in the order they were added within the `Manager.tick(float dt)` call.
-You can even share one script between multiple entities because you are passing a shared_ptr.
+This will add the particle script with a 5 second lifetime.
+You can add multiple scripts to one entity. They will be executed in the exact order they were added within the `Manager.tick(float dt)` call.
+Since you pass a shared_ptr to a script, you may also share one script between multiple entities.
 
 ### Queries
 
-At some point you probably want to perform some actions on your entities. You can easily do this using the manager `m`.
+At some point you probably want to interact with your entities. You can simply do this by using the manager `m`.
 
 ```c++
 // this will return a const std::vector<std::shared_ptr<ecs::Entity<SYSTEM>>>& to all entities with Transform and Movement components
 const auto& myEnts = m.getEntsWith<Transform,Movement>();
-// it is a constant reference because you should not change the vectors size, but you can change the entities within the vector
+// it is a constant reference since you should not change the vectors size, but still allows you to change the entities within the vector.
 for(const auto& e : myEnts)
 {
 	// do some stuff..
@@ -214,12 +215,13 @@ for(const auto& e : myEnts)
 }
 ```
 
-However without adding the query cache to the manager, this would be somewhat slow because the vector will be created on function call.
-It is more efficient to add a query cache to the manager before `Manager.start()` to optimize this call by caching the result of the function.
+However, without caching the query, the vector would be created within the function call and thus be
+restricted in performance. Caching can be achieved by using `Manager.addQuery<Components...>()` before calling
+`Manager.start()`.
 
 ```c++
 ecs::Manager<SYSTEM> m;
-// add query to cache
+// cache query
 m.addQuery<Transform,Movement>();
 m.start()
 
@@ -234,8 +236,8 @@ while(1)
 }
 ```
 
-You may also use the manager to perform per entity operations. To do that you have to pass a lambda function that will be performed per entity.
-Adding the query is still required.
+You may also use the manager to perform operations on specific entities, in other words "per entity operations". To do so, you have to pass a lambda function that
+will be called per entity. But still, adding the query is required for fast executing.
 
 ```c++
 m.forEach<Transform,Movement>([](ecs::Entity<System>& e)
@@ -244,9 +246,9 @@ m.forEach<Transform,Movement>([](ecs::Entity<System>& e)
 });
 ```
 
-This may seem slower like the other approach but with function inlining this approach is exactly as fast as the previous.
-A way to improve independent per entity actions for a bigger amount of entities is running this function on multiple threads.
-With the manager this can be easily done:
+It may seem slower than the other approach, but with function inlining it is exactly as fast as the previous one.
+A way to improve independent per entity actions for a bigger amount of entities may just be achieved by running the function on multiple threads.
+However, the Manager can easily work this out:
 
 ```c++
 m.forEachParallel<Transform,Movement>([](ecs::Entity<System>& e)
@@ -255,14 +257,14 @@ m.forEachParallel<Transform,Movement>([](ecs::Entity<System>& e)
 });
 ```
 
-This method will apply the function on the first entity and measures the time needed to process one entity.
-It will evaluate if execution on multiple cores will speed up this call based on: the amount of entities,
-the measured time, the time until a thread starts and the number of cores. This will probably have some poor
-performance in debug mode (because its monitoring several threads) but the release build should be faster.
+This specific method applies the function on the first entity and measures the time needed to process one entity.
+Based on the amount of entities, the measured time, the time until a thread starts and the number of cores, this method will evaluate whether the execution
+on multiple cores can speed up the call. It might have some poor performance in debug mode (because its monitoring several threads), but the release build will 
+definitely improve on this matter.
 
 ### Adding Systems
 
-If you have specific actions that should be performed on component groups you can declare Systems. Systems are used to organize your Code.
+If you have specific actions that should be performed on component groups, you can simply declare Systems. Systems are used to organize your Code.
 
 Position updates without System:
 
@@ -288,7 +290,7 @@ while(1)
 }
 ```
 
-If you declare a `MovementSystem` that does the same, your code can be written like this:
+If you declare a `MovementSystem` that does the same, your code can be written just like that:
 
 ```c++
 ecs::Manager<SYSTEM> m;
