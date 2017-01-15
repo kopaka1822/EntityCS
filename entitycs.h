@@ -46,10 +46,12 @@ namespace ecs
 		}
 		ManagerT& getManager() const
 		{
-			return m_curEntity->getManager();
+			assert(m_manager);
+			return *m_manager;
 		}
 	private:
 		EntityT* m_curEntity = nullptr;
+		ManagerT* m_manager = nullptr;
 	};
 
 	template<typename... TComponents>
@@ -68,6 +70,7 @@ namespace ecs
 	protected:
 		ManagerT& getManager() const
 		{
+			assert(m_manager);
 			return *m_manager;
 		}
 	private:
@@ -137,10 +140,15 @@ namespace ecs
 		void addScript(shared_ptr<ScriptT> s)
 		{
 			assert(!m_componentsAdded);
+			assert(s);
+			assert(m_manager);
+			s->m_manager = m_manager;
+			s->m_curEntity = this;
 			m_scripts.push_back(s);
 		}
 		ManagerT& getManager() const
 		{
+			assert(m_manager);
 			return *m_manager;
 		}
 	private:
@@ -187,17 +195,19 @@ namespace ecs
 			{
 				s->m_curEntity = this;
 				s->tick(dt);
-				s->m_curEntity = nullptr;
+				//s->m_curEntity = nullptr;
 			}
 		}
 		void runStartupScript()
 		{
-			assert(hasScript());
-			for (auto s : m_scripts)
+			if (hasScript())
 			{
-				s->m_curEntity = this;
-				s->begin();
-				s->m_curEntity = nullptr;
+				for (auto s : m_scripts)
+				{
+					s->m_curEntity = this;
+					s->begin();
+					//s->m_curEntity = nullptr;
+				}
 			}
 		}
 		bool hasScript() const
@@ -208,7 +218,7 @@ namespace ecs
 		bool m_alive = true;
 		bool m_componentsAdded = false;
 		size_t m_id = -1;
-		Manager<TComponents...>* m_manager = nullptr;
+		ManagerT* m_manager = nullptr;
 		std::tuple<TComponents...> m_components;
 		SystemKeyT m_componentFlags = 0; // bitflag of used components
 		static_assert(std::tuple_size<std::tuple<TComponents...>>::value <= 64, "only up to 64 components are supported");
@@ -346,6 +356,8 @@ namespace ecs
 					assert(e->m_componentsAdded == false);
 					if (e->isAlive())
 					{
+						// run startup script
+						e->runStartupScript();
 						e->m_componentsAdded = true;
 						m_entities.push_back(e);
 						// generate component key

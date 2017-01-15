@@ -61,7 +61,7 @@ Manager<int, float, double, char> m2;
   - `virtual void begin()` called when entity is spawned.  
   - `virtual void tick(float dt)` called every frame.  
 - helper methods:  
-  - `EntityT& getEntity()` returns a reference to the currently processed entity of this script.  
+  - `EntityT& getEntity()` returns a reference to the last processed entity of this script.  
   - `const EntityT& getEntity() const` 
   - `ManagerT& getManager() const`
   
