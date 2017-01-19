@@ -70,7 +70,9 @@ Manager<int, float, double, char> m2;
   - `virtual ~System()`
   - `virtual void initQueries(ManagerT& m)` called within `Manager.start()`. Implement your `Manager.addQuery<>()` calls here.
   - `virtual void begin()` called within `Manager.start()` after initQueries().
-  - `virtual void tick(float dt)` called every frame.  
+  - `virtual void tick(float dt)` called every frame.
+  - `virtual void onEntitySpawn(EntityT& e)` called within `Manager.tick()`. Components can be added from here.
+  - `virtual void onEntityDeath(EntityT& e)` called within `Manager.tick()`.
 - helper methods: 
   - `ManagerT& getManager() const`
 

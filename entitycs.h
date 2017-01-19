@@ -67,6 +67,8 @@ namespace ecs
 		virtual void initQueries(ManagerT& m) {}
 		virtual void begin() {}
 		virtual void tick(float dt) {}
+		virtual void onEntitySpawn(EntityT& e) {}
+		virtual void onEntityDeath(EntityT& e) {}
 	protected:
 		ManagerT& getManager() const
 		{
@@ -297,8 +299,6 @@ namespace ecs
 				// queue for adding (to prevent iterator lost when adding whilst iterating through entities)
 				m_freshEntities.push_back(e);
 			}
-			if (e->hasScript())
-				e->runStartupScript();
 			return e;
 		}
 		template<typename... TReq>
@@ -358,6 +358,10 @@ namespace ecs
 					{
 						// run startup script
 						e->runStartupScript();
+						// pass through systems
+						for (auto& s : m_systems)
+							s->onEntitySpawn(*e);
+
 						e->m_componentsAdded = true;
 						m_entities.push_back(e);
 						// generate component key
@@ -568,6 +572,10 @@ namespace ecs
 				// is dead?
 				if (!v[left]->isAlive())
 				{
+					// trigger on death event
+					for (auto& s : m_systems)
+						s->onEntityDeath(*v[left]);
+
 					rflag |= v[left]->m_componentFlags;
 					rscript = rscript || v[left]->hasScript();
 					// search first dead in right
@@ -575,6 +583,10 @@ namespace ecs
 					{
 						if (v[right]->isAlive())
 							break;
+						// trigger on death event
+						for (auto& s : m_systems)
+							s->onEntityDeath(*v[right]);
+						
 						right--;
 						v.pop_back();
 					}
