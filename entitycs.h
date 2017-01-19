@@ -580,9 +580,9 @@ namespace ecs
 					// trigger on death event
 					for (auto& s : m_systems)
 						s->onEntityDeath(v[left]);
-
 					rflag |= v[left]->m_componentFlags;
 					rscript = rscript || v[left]->hasScript();
+
 					// search first dead in right
 					while (right > left)
 					{
@@ -591,7 +591,9 @@ namespace ecs
 						// trigger on death event
 						for (auto& s : m_systems)
 							s->onEntityDeath(v[right]);
-						
+						rflag |= v[right]->m_componentFlags;
+						rscript = rscript || v[right]->hasScript();
+
 						right--;
 						v.pop_back();
 					}
