@@ -112,6 +112,11 @@ namespace ecs
 		{
 			return ((SystemKeyT(1) << (m_manager->template getComponentIndex<T>())) & m_componentFlags) != 0;
 		}
+		template<typename... TReq>
+		bool hasComponents() const
+		{
+			return (m_componentFlags & ManagerT::getComponentMask(0, std::tuple<TReq...>())) == ManagerT::getComponentMask(0, std::tuple<TReq...>());
+		}
 #ifndef _MSC_BUILD
 		template<class T>
 		T& getComponent()

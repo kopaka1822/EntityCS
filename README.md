@@ -50,6 +50,7 @@ Manager<int, float, double, char> m2;
 - `size_t getID() const` returns the unique ID of the entity.
 - `template<class T> T& addComponent()`
 - `template<class T> bool hasComponent() const`
+- `template<class TReq...> bool hasComponents() const`
 - `template<class T> T& getComponent()`
 - `template<class T> const T& getComponent() const`
 - `void addScript(shared_ptr<ScriptT> s)`
@@ -155,6 +156,10 @@ myEnt->addComponent<Shape>().color = vec3(1.0f,0.0f,0.0f);
 // testing component
 if(myEnt->hasComponent<Shape>())
 	std::cout << "I have a shape";
+	
+// tesitng multiple components
+if(myEnt->hasComponents<Shape,Transform>())
+	std::cout << "I have a dream";
 ```
 
 ### Adding Scripts to Entites
