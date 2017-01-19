@@ -67,8 +67,8 @@ namespace ecs
 		virtual void initQueries(ManagerT& m) {}
 		virtual void begin() {}
 		virtual void tick(float dt) {}
-		virtual void onEntitySpawn(EntityT& e) {}
-		virtual void onEntityDeath(EntityT& e) {}
+		virtual void onEntitySpawn(shared_ptr<EntityT> e) {}
+		virtual void onEntityDeath(shared_ptr<EntityT> e) {}
 	protected:
 		ManagerT& getManager() const
 		{
@@ -365,7 +365,7 @@ namespace ecs
 						e->runStartupScript();
 						// pass through systems
 						for (auto& s : m_systems)
-							s->onEntitySpawn(*e);
+							s->onEntitySpawn(e);
 
 						e->m_componentsAdded = true;
 						m_entities.push_back(e);
@@ -579,7 +579,7 @@ namespace ecs
 				{
 					// trigger on death event
 					for (auto& s : m_systems)
-						s->onEntityDeath(*v[left]);
+						s->onEntityDeath(v[left]);
 
 					rflag |= v[left]->m_componentFlags;
 					rscript = rscript || v[left]->hasScript();
@@ -590,7 +590,7 @@ namespace ecs
 							break;
 						// trigger on death event
 						for (auto& s : m_systems)
-							s->onEntityDeath(*v[right]);
+							s->onEntityDeath(v[right]);
 						
 						right--;
 						v.pop_back();
