@@ -351,6 +351,8 @@ namespace ecs
 						removeDeadEntities(q.second);
 					}
 				}
+				if (scriptRemoved)
+					removeDeadEntities(m_scripted);
 			}
 
 			// add new components
@@ -376,6 +378,8 @@ namespace ecs
 							if ((s.first & entKey) == s.first)
 								s.second.push_back(e);
 						}
+						if (e->hasScript())
+							m_scripted.push_back(e);
 					}
 				}
 				m_freshEntities.resize(0);
@@ -386,7 +390,7 @@ namespace ecs
 				s->tick(dt);
 
 			// run scripts for entities
-			for (auto& e : m_entities)
+			for (auto& e : m_scripted)
 				if (e->hasScript())
 					e->runScript(dt);
 		}
@@ -617,6 +621,7 @@ namespace ecs
 		std::vector<std::vector<shared_ptr<EntityT>>> m_tempCachedQueries;
 		size_t m_curID = 0;
 		std::vector<std::pair<SystemKeyT, std::vector<shared_ptr<EntityT>>>> m_queries;
+		std::vector<shared_ptr<EntityT>> m_scripted;
 		std::vector<shared_ptr<SystemT>> m_systems;
 		States m_state = States::Init;
 		TimeT m_timeTillThreadStarts = 0;
